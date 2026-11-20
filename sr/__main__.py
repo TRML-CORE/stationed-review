@@ -39,6 +39,7 @@ def main(argv=None):
     cfg = config.load(gitctx.show(a.repo_dir, a.base, ".stationed/review.yml"))
     if a.effort:
         cfg["effort"] = a.effort
+        cfg["budget"]["max_turns"], cfg["budget"]["verify_max_turns"] = config.TURNS[a.effort]
     if a.model:
         cfg["model"] = a.model
     if a.no_verify:
