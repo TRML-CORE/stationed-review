@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -54,6 +55,13 @@ def find_prompt(lens, ctx):
     return "\n\n".join(parts)
 
 
+def remaining(ctx, cap, reserve=0):
+    """Seconds a phase may take: its own cap, cut so the job finishes before ctx['deadline']."""
+    if ctx.get("deadline") is None:
+        return cap
+    return min(cap, int(ctx["deadline"] - time.time() - reserve))
+
+
 def setup_commands(cfg):
     setup = cfg["verify"].get("setup") or []
     return [setup] if isinstance(setup, str) else [str(c) for c in setup if c]
@@ -98,7 +106,8 @@ def find(ctx, cfg, repo_dir, log):
         try:
             data, meta = claude.run(find_prompt(lens, ctx), repo_dir, READ_TOOLS, schema.REVIEW_SCHEMA,
                                     model=cfg["model"], max_turns=cfg["budget"]["max_turns"],
-                                    timeout=cfg["budget"]["timeout_s"], effort=config.THINKING[cfg["effort"]])
+                                    timeout=max(120, remaining(ctx, cfg["budget"]["timeout_s"], reserve=900)),
+                                    effort=config.THINKING[cfg["effort"]])
             return lens, schema.check_review(data), meta, None
         except (claude.ClaudeError, json.JSONDecodeError) as e:
             return lens, None, {}, str(e)
@@ -146,16 +155,20 @@ def verify(cands, ctx, cfg, repo_dir, log):
     """Return {candidate id: verdict}. Missing ids mean the verifier didn't reach them."""
     if not cands or not cfg["verify"]["enabled"]:
         return {}, []
+    if remaining(ctx, 10**9) < 180:
+        log("verify skipped: job deadline")
+        return {}, [{"step": "verify", "error": "skipped: job deadline"}]
     root, tree = scratch_copy(repo_dir, ctx["head_sha"])
     os.environ["SR_SCRATCH"] = str(tree)
     tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash(sr-run)"]
     try:
-        setup_output = run_setup(tree, cfg)
+        setup_output = run_setup(tree, cfg, timeout=max(60, remaining(ctx, 900, reserve=300)))
         if setup_output:
             log("verify setup " + setup_output.strip().splitlines()[-1][:200])
         data, meta = claude.run(verify_prompt(cands, ctx, cfg, setup_output), str(tree), tools, schema.VERIFY_SCHEMA,
                                 model=cfg["verify_model"] or cfg["model"],
-                                max_turns=cfg["budget"]["verify_max_turns"], timeout=cfg["budget"]["timeout_s"],
+                                max_turns=cfg["budget"]["verify_max_turns"],
+                                timeout=max(60, remaining(ctx, cfg["budget"]["timeout_s"], reserve=120)),
                                 effort=config.THINKING[cfg["effort"]])
     except claude.ClaudeError as e:
         log(f"verify error {e}")

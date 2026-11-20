@@ -35,7 +35,7 @@ def pick_claude_token(env: dict, choose=random.choice) -> dict:
     return env
 
 
-@app.function(secrets=[secret], timeout=5400, cpu=2.0, memory=4096, single_use_containers=True, max_containers=10)
+@app.function(secrets=[secret], timeout=3600, cpu=2.0, memory=4096, single_use_containers=True, max_containers=10)
 def review(job: dict):
     """Runs as root only to hand the job to the unprivileged `sr` user."""
     path = "/tmp/job.json"

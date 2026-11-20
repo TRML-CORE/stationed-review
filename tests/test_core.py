@@ -416,3 +416,20 @@ class DevinOverlap(unittest.TestCase):
         first, _ = process.select([finding(start_line=40, end_line=40)], {"app/x.py": [(30, 34)]}, cfg)
         again, _ = process.select(first, {"app/x.py": [(30, 34)]}, cfg)
         self.assertEqual(again[0]["orig_lines"], (40, 40))
+
+
+class Deadline(unittest.TestCase):
+    def test_phase_timeouts_shrink_to_the_job_deadline(self):
+        import time as _t
+        from sr import engine
+        self.assertEqual(engine.remaining({}, 1500), 1500)
+        ctx = {"deadline": _t.time() + 1000}
+        self.assertLessEqual(engine.remaining(ctx, 1500, reserve=300), 700)
+        self.assertEqual(engine.remaining(ctx, 100), 100)
+
+    def test_verify_skipped_past_deadline(self):
+        import time as _t
+        from sr import engine
+        ctx = {"deadline": _t.time() + 10, "head_sha": "x"}
+        verdicts, metas = engine.verify([{"id": "c1"}], ctx, config.load(""), ".", log=lambda m: None)
+        self.assertEqual((verdicts, metas[0]["error"]), ({}, "skipped: job deadline"))

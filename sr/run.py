@@ -11,6 +11,8 @@ from . import VERSION, claude, config, devin, engine, gitctx, post, process, sta
 from .github import GitHub
 from .redact import redact
 
+# The bridge's installation token lasts 1 hour; finish reviewing early enough to still post with it.
+JOB_BUDGET_S = 3000
 REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 REF = re.compile(r"^[A-Za-z0-9._/-]+$")
@@ -110,6 +112,7 @@ def run_job(job, log=print, gh=None):
             if cfg["skip_devin_duplicates"]:
                 log(f"devin review: {devin.wait(gh, job['head_sha'])}")
                 ctx["external"] = devin.findings(gh, job["number"])
+            ctx["deadline"] = started + JOB_BUDGET_S
             result = engine.review(ctx, cfg, workdir, log)
             meta = {"run_id": run_id, "engine": "stationed-review", "model": cfg["model"], "effort": cfg["effort"],
                     "head_sha": job["head_sha"], "duration_s": int(time.time() - started),
