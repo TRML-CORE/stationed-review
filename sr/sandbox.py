@@ -75,7 +75,7 @@ def main(tree):
     up.stdin.write_eof()
     up.stdin.drain()
     up.wait()
-    if base is None and not setup:
+    if base is None:  # snapshot now too, so a setup run that is cut short still leaves a /base
         sb.exec("bash", "-c", SNAPSHOT, timeout=300).wait()
     p = sb.exec("bash", "-c", "cd /w && timeout 600 bash .sr/run.sh 2>&1 | tail -c 8000; "
                 "echo \"[exit ${PIPESTATUS[0]}]\"", timeout=700)
