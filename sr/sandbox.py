@@ -33,7 +33,7 @@ def tar_tree(tree, base=None):
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for rel in changed:
             tar.add(tree / rel, arcname=rel, recursive=False)
-        for path in (tree / ".sr").glob("*"):
+        for path in (tree / ".sr").rglob("*"):
             if path.is_file() and path.name != ".deleted":
                 tar.add(path, arcname=str(path.relative_to(tree)))
         data = "\0".join(deleted).encode()

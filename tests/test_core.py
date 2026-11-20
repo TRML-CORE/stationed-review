@@ -396,6 +396,17 @@ class Scratch(unittest.TestCase):
 
 
 class SandboxUpload(unittest.TestCase):
+    def test_nested_sr_files_are_uploaded(self):
+        import io as _io
+        import tarfile as _tf
+        from sr.sandbox import tar_tree
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".sr" / "fixtures").mkdir(parents=True)
+            (Path(d) / ".sr" / "run.sh").write_text("true\n")
+            (Path(d) / ".sr" / "fixtures" / "a.json").write_text("{}")
+            names = _tf.open(fileobj=_io.BytesIO(tar_tree(d, {})), mode="r:gz").getnames()
+            self.assertIn(".sr/fixtures/a.json", names)
+
     def test_runs_start_from_setup_state_plus_verifier_edits(self):
         from sr.sandbox import FIRST, RESTORE, SNAPSHOT, manifest, tar_tree
         with tempfile.TemporaryDirectory() as d:
