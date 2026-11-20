@@ -437,6 +437,8 @@ class Deadline(unittest.TestCase):
         ctx = {"deadline": _t.time() + 1000}
         self.assertLessEqual(engine.remaining(ctx, 1500, reserve=300), 700)
         self.assertEqual(engine.remaining(ctx, 100), 100)
+        self.assertEqual(engine.remaining({"deadline": _t.time()}, 90, floor=120), 90)
+        self.assertEqual(engine.remaining({"deadline": _t.time()}, 900, floor=120), 120)
 
     def test_verify_skipped_past_deadline(self):
         import time as _t

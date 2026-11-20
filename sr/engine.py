@@ -55,11 +55,11 @@ def find_prompt(lens, ctx):
     return "\n\n".join(parts)
 
 
-def remaining(ctx, cap, reserve=0):
-    """Seconds a phase may take: its own cap, cut so the job finishes before ctx['deadline']."""
+def remaining(ctx, cap, reserve=0, floor=0):
+    """Seconds a phase may take: its own cap, cut (not below `floor`) so the job ends before ctx['deadline']."""
     if ctx.get("deadline") is None:
         return cap
-    return min(cap, int(ctx["deadline"] - time.time() - reserve))
+    return min(cap, max(floor, int(ctx["deadline"] - time.time() - reserve)))
 
 
 def setup_commands(cfg):
@@ -106,7 +106,7 @@ def find(ctx, cfg, repo_dir, log):
         try:
             data, meta = claude.run(find_prompt(lens, ctx), repo_dir, READ_TOOLS, schema.REVIEW_SCHEMA,
                                     model=cfg["model"], max_turns=cfg["budget"]["max_turns"],
-                                    timeout=max(120, remaining(ctx, cfg["budget"]["timeout_s"], reserve=900)),
+                                    timeout=remaining(ctx, cfg["budget"]["timeout_s"], reserve=900, floor=120),
                                     effort=config.THINKING[cfg["effort"]])
             return lens, schema.check_review(data), meta, None
         except (claude.ClaudeError, json.JSONDecodeError) as e:
@@ -162,13 +162,13 @@ def verify(cands, ctx, cfg, repo_dir, log):
     os.environ["SR_SCRATCH"] = str(tree)
     tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash(sr-run)"]
     try:
-        setup_output = run_setup(tree, cfg, timeout=max(60, remaining(ctx, 900, reserve=300)))
+        setup_output = run_setup(tree, cfg, timeout=remaining(ctx, 900, reserve=300, floor=60))
         if setup_output:
             log("verify setup " + setup_output.strip().splitlines()[-1][:200])
         data, meta = claude.run(verify_prompt(cands, ctx, cfg, setup_output), str(tree), tools, schema.VERIFY_SCHEMA,
                                 model=cfg["verify_model"] or cfg["model"],
                                 max_turns=cfg["budget"]["verify_max_turns"],
-                                timeout=max(60, remaining(ctx, cfg["budget"]["timeout_s"], reserve=120)),
+                                timeout=remaining(ctx, cfg["budget"]["timeout_s"], reserve=120, floor=60),
                                 effort=config.THINKING[cfg["effort"]])
     except claude.ClaudeError as e:
         log(f"verify error {e}")
