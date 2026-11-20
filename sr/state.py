@@ -24,11 +24,24 @@ def parse(body):
         return empty()
 
 
+def _block(state):
+    raw = base64.b64encode(json.dumps(state, separators=(",", ":")).encode()).decode()
+    return f"<!-- {MARK} {raw} -->"
+
+
+def _compact(f):
+    v = f.get("verified")
+    return dict(f, title=str(f.get("title") or "")[:140], anchor=str(f.get("anchor") or "")[:200],
+                verified={"method": v.get("method")} if isinstance(v, dict) else v)
+
+
 def dump(state, limit=60000):
+    """Fit the block in `limit` chars: drop old runs, then verifier output, then the last findings."""
     state = dict(state, runs=state.get("runs", [])[-MAX_RUNS:])
-    while True:
-        raw = base64.b64encode(json.dumps(state, separators=(",", ":")).encode()).decode()
-        block = f"<!-- {MARK} {raw} -->"
-        if len(block) <= limit or not state["runs"]:
-            return block
+    while len(_block(state)) > limit and state["runs"]:
         state["runs"] = state["runs"][1:]
+    if len(_block(state)) > limit:
+        state["findings"] = [_compact(f) for f in state.get("findings", [])]
+    while len(_block(state)) > limit and state.get("findings"):
+        state["findings"] = state["findings"][:-1]
+    return _block(state)

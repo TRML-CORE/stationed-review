@@ -6,7 +6,10 @@ set -uo pipefail
 : "${SR_SCRATCH:?SR_SCRATCH is not set}"
 [ -f "$SR_SCRATCH/.sr/run.sh" ] || { echo "write your commands to .sr/run.sh first"; exit 2; }
 case "${SR_SANDBOX:-local}" in
-  modal) exec python3 -m sr.sandbox "$SR_SCRATCH" ;;
+  modal)
+    # Import sr.sandbox from the installed engine, never from the PR checkout in the working directory.
+    root="${SR_HOME:-/opt/stationed-review}"
+    cd "$root" && PYTHONPATH="$root" exec python3 -m sr.sandbox "$SR_SCRATCH" ;;
   local)
     user="${SR_SANDBOX_USER:-srverify}"
     exec timeout 600 sudo -n -u "$user" env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp LANG=C.UTF-8 \

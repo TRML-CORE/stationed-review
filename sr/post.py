@@ -85,6 +85,8 @@ def summary_body(result, st, meta):
                  f"{len(result.get('devin_dupes') or [])} skipped as already posted by Devin Review · "
                  f"commit `{meta['head_sha'][:7]}`</sub>")
     body = "\n\n".join(lines)
+    if len(body) > 55000:
+        body = body[:55000] + "\n\n_Summary truncated; see the check annotations._"
     return body + "\n" + state.dump(st, limit=65000 - len(body) - 10)
 
 

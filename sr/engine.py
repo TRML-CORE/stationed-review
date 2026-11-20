@@ -13,6 +13,7 @@ PROMPTS = Path(__file__).parent / "prompts"
 READ_TOOLS = ["Read", "Grep", "Glob", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
               "Bash(git blame:*)", "Bash(git ls-files:*)", "Bash(git grep:*)"]
 DIFF_CAP = 80000
+SR_RUN = Path(__file__).resolve().parents[1] / "bin" / "sr-run"
 
 
 def prompt_text(name):
@@ -53,14 +54,37 @@ def find_prompt(lens, ctx):
     return "\n\n".join(parts)
 
 
-def verify_prompt(cands, ctx, cfg):
+def setup_commands(cfg):
+    setup = cfg["verify"].get("setup") or []
+    return [setup] if isinstance(setup, str) else [str(c) for c in setup if c]
+
+
+def run_setup(tree, cfg, runner=SR_RUN, timeout=900):
+    """Run verify.setup through sr-run, so it executes where the verifier's commands will."""
+    cmds = setup_commands(cfg)
+    if not cmds:
+        return ""
+    script = Path(tree) / ".sr" / "run.sh"
+    script.write_text("set -e\n" + "\n".join(cmds) + "\n")
+    try:
+        r = subprocess.run([str(runner)], env=dict(os.environ, SR_SCRATCH=str(tree)), capture_output=True,
+                           text=True, timeout=timeout)
+        return (r.stdout + r.stderr)[-3000:]
+    except subprocess.TimeoutExpired:
+        return f"[setup timed out after {timeout}s]"
+    finally:
+        script.unlink(missing_ok=True)
+
+
+def verify_prompt(cands, ctx, cfg, setup_output=""):
     setup = cfg["verify"]
     lines = [f"- {c['id']}: [{c['category']}/{c['severity']}] {c['file']}:{c['start_line']}-{c['end_line']} "
              f"{c['title']}\n  explanation: {c['explanation']}\n  trigger: {c.get('trigger', '')}"
              for c in cands]
     return "\n\n".join([
         prompt_text("verify"),
-        "SETUP\n" + fence("SETUP", json.dumps({"installed_by": setup.get("setup") or "(nothing)",
+        "SETUP\n" + fence("SETUP", json.dumps({"installed_by": setup_commands(cfg) or "(nothing)",
+                                               "setup_output": setup_output or "(no setup)",
                                                "test_command": setup.get("test") or "(unknown)"})),
         "CANDIDATES (untrusted)\n" + fence("CANDIDATES", "\n".join(lines)),
         "RULES (trusted)\n" + ("\n\n".join(f"--- {p} ---\n{t[:8000]}" for p, t in ctx["rules"].items()) or "(none)"),
@@ -121,7 +145,10 @@ def verify(cands, ctx, cfg, repo_dir, log):
     os.environ["SR_SCRATCH"] = str(tree)
     tools = ["Read", "Grep", "Glob", "Write", "Edit", "Bash(sr-run)"]
     try:
-        data, meta = claude.run(verify_prompt(cands, ctx, cfg), str(tree), tools, schema.VERIFY_SCHEMA,
+        setup_output = run_setup(tree, cfg)
+        if setup_output:
+            log("verify setup " + setup_output.strip().splitlines()[-1][:200])
+        data, meta = claude.run(verify_prompt(cands, ctx, cfg, setup_output), str(tree), tools, schema.VERIFY_SCHEMA,
                                 model=cfg["verify_model"] or cfg["model"],
                                 max_turns=cfg["budget"]["verify_max_turns"], timeout=cfg["budget"]["timeout_s"],
                                 effort=config.THINKING[cfg["effort"]])
@@ -161,7 +188,7 @@ def apply_verdicts(cands, verdicts):
 
 def review(ctx, cfg, repo_dir, log=print):
     found, metas = find(ctx, cfg, repo_dir, log)
-    hunks = gitctx.hunks(ctx["diff"])
+    hunks = gitctx.hunks(ctx.get("hunk_diff") or ctx["diff"])
     pre, _ = process.select(found["findings"], hunks, dict(cfg, min_confidence=cfg["min_confidence"] * 0.6,
                                                              max_findings=20))
     _, still, fresh_pre = process.reconcile(ctx["prior_open"], found["prior"], pre, lambda p: True)

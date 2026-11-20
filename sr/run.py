@@ -70,6 +70,8 @@ def build_context(repo_dir, base_ref, head_sha, pr, prior):
         since = None if since != head_sha else since
     return {"base_sha": base_sha, "head_sha": head_sha, "base_tip": base_tip,
             "diff": gitctx.diff(repo_dir, base_sha, head_sha),
+            # GitHub only accepts comments inside its own 3-line-context hunks.
+            "hunk_diff": gitctx.diff(repo_dir, base_sha, head_sha, unified=3),
             "files": gitctx.changed_files(repo_dir, base_sha, head_sha),
             "rules": gitctx.rules(repo_dir, base_tip), "title": pr.get("title") or "",
             "body": pr.get("body") or "", "prior_open": prior.get("findings", []), "since_sha": since}

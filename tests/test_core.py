@@ -288,3 +288,69 @@ class Devin(unittest.TestCase):
                 return []
         t = iter(range(0, 1000, 30))
         self.assertIsNone(devin.wait(Never(), "s", sleep=lambda s: None, clock=lambda: next(t)))
+
+
+class Fixes(unittest.TestCase):
+    def test_sr_run_imports_installed_engine_not_pr(self):
+        import os
+        with tempfile.TemporaryDirectory() as d:
+            home, scratch = Path(d, "home"), Path(d, "scratch")
+            for root, who in ((home, "engine"), (scratch, "pr")):
+                (root / "sr").mkdir(parents=True)
+                (root / "sr" / "__init__.py").write_text("")
+                (root / "sr" / "sandbox.py").write_text(f"print('{who}')\n")
+            (scratch / ".sr").mkdir()
+            (scratch / ".sr" / "run.sh").write_text("true\n")
+            sr_run = Path(__file__).resolve().parents[1] / "bin" / "sr-run"
+            env = {"PATH": os.environ["PATH"], "SR_SANDBOX": "modal", "SR_HOME": str(home), "SR_SCRATCH": str(scratch)}
+            out = subprocess.run([str(sr_run)], cwd=scratch, env=env, capture_output=True, text=True).stdout
+            self.assertEqual(out.strip(), "engine")
+
+    def test_agent_env_keeps_modal_settings_only_on_modal(self):
+        from sr import claude
+        base = {"PATH": "/bin", "MODAL_TASK_ID": "t", "MODAL_SERVER_URL": "u", "GITHUB_TOKEN": "x"}
+        self.assertEqual(claude.child_env(dict(base, SR_SANDBOX="modal")),
+                         {"PATH": "/bin", "SR_SANDBOX": "modal", "MODAL_TASK_ID": "t", "MODAL_SERVER_URL": "u"})
+        self.assertEqual(claude.child_env(dict(base, SR_SANDBOX="local")), {"PATH": "/bin", "SR_SANDBOX": "local"})
+
+    def test_verify_setup_runs_before_verifier(self):
+        from sr import engine
+        with tempfile.TemporaryDirectory() as d:
+            tree = Path(d)
+            (tree / ".sr").mkdir()
+            runner = tree / "runner"
+            runner.write_text('#!/bin/bash\ncd "$SR_SCRATCH" && bash .sr/run.sh; echo "[exit $?]"\n')
+            runner.chmod(0o755)
+            cfg = config.load("verify: {setup: ['touch installed', 'echo ok']}")
+            out = engine.run_setup(tree, cfg, runner=runner)
+            self.assertIn("ok", out)
+            self.assertIn("[exit 0]", out)
+            self.assertTrue((tree / "installed").exists())
+            self.assertFalse((tree / ".sr" / "run.sh").exists())
+            self.assertEqual(engine.run_setup(tree, config.load(""), runner=runner), "")
+
+    def test_hunks_use_github_context(self):
+        from sr.run import build_context
+        with tempfile.TemporaryDirectory() as d:
+            def g(*a):
+                subprocess.run(["git", "-C", d, *a], check=True, capture_output=True)
+            g("init", "-q", "-b", "main")
+            Path(d, "a.txt").write_text("".join(f"{i}\n" for i in range(1, 31)))
+            g("add", "."); g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+            Path(d, "a.txt").write_text("".join(f"{i if i != 15 else 'x'}\n" for i in range(1, 31)))
+            g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qam", "change")
+            g("update-ref", "refs/remotes/origin/main", "HEAD~1")
+            head = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+            ctx = build_context(d, "main", head, {}, {})
+            self.assertEqual(gitctx.hunks(ctx["hunk_diff"]), {"a.txt": [(12, 18)]})
+            self.assertEqual(gitctx.hunks(ctx["diff"]), {"a.txt": [(10, 20)]})
+
+    def test_state_block_fits_with_large_verifier_output(self):
+        f = dict(finding(), fp="p", verified={"method": "ran", "output": "x" * 50000, "evidence": "y" * 50000})
+        st = {"v": 1, "last_sha": "a", "findings": [f, dict(f, fp="q")], "runs": [{"run": "r"}] * 20}
+        block = state.dump(st, limit=6000)
+        self.assertLessEqual(len(block), 6000)
+        back = state.parse(block)
+        self.assertEqual([x["fp"] for x in back["findings"]], ["p", "q"])
+        self.assertEqual(back["findings"][0]["verified"], {"method": "ran"})
+        self.assertLessEqual(len(state.dump(st, limit=200)), 200)
