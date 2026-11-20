@@ -28,5 +28,5 @@ verify: { setup: ["pip install -r requirements.txt"], test: "./scripts/test.sh" 
 python3 -m unittest discover -s tests                     # unit tests
 python3 -m sr replay REPO --base refs/remotes/origin/main --head SHA --out out.json   # offline review
 modal deploy modal_app.py                                 # Modal secret `stationed-review`:
-                                                          #   SR_JOB_SECRET + CLAUDE_CODE_OAUTH_TOKEN
+                                                          #   SR_JOB_SECRET + CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_OAUTH_TOKEN_1..n
 ```
