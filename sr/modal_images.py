@@ -12,7 +12,8 @@ def reviewer_image():
                           "useradd -m -s /bin/bash sr")
             .pip_install("pyyaml==6.0.2", "modal==1.6.4", "fastapi[standard]==0.115.12")
             .add_local_dir(".", "/opt/stationed-review", copy=True, ignore=[".git", "tests", "**/__pycache__"])
-            .run_commands("install -m 755 /opt/stationed-review/bin/sr-run /usr/local/bin/sr-run"))
+            .run_commands("install -m 755 /opt/stationed-review/bin/sr-run /usr/local/bin/sr-run")
+            .env({"PYTHONPATH": "/opt/stationed-review"}))
 
 
 def sandbox_image():
