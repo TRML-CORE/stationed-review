@@ -377,3 +377,24 @@ class Scratch(unittest.TestCase):
                 self.assertEqual(list(outside.iterdir()), [])
             finally:
                 shutil.rmtree(root)
+
+
+class SandboxUpload(unittest.TestCase):
+    def test_later_uploads_skip_unchanged_files(self):
+        import io as _io
+        import os
+        import tarfile
+        from sr.sandbox import tar_tree
+        with tempfile.TemporaryDirectory() as d:
+            tree = Path(d)
+            (tree / ".sr").mkdir()
+            (tree / ".sr" / "run.sh").write_text("true\n")
+            (tree / "config.py").write_text("x = 1\n")
+            (tree / "repro.py").write_text("print(1)\n")
+            os.utime(tree / "config.py", (1000, 1000))
+            os.utime(tree / ".sr" / "run.sh", (1000, 1000))
+
+            def names(blob):
+                return sorted(tarfile.open(fileobj=_io.BytesIO(blob), mode="r:gz").getnames())
+            self.assertEqual(names(tar_tree(tree)), [".sr/run.sh", "config.py", "repro.py"])
+            self.assertEqual(names(tar_tree(tree, since=2000)), [".sr/run.sh", "repro.py"])
