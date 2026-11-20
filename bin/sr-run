@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# The verifier's only way to run code: executes $SR_SCRATCH/.sr/run.sh in an isolated sandbox.
+#   SR_SANDBOX=modal  -> a Modal Sandbox with no secrets (default on Modal)
+#   SR_SANDBOX=local  -> as the unprivileged $SR_SANDBOX_USER with a clean environment (dev boxes)
+set -uo pipefail
+: "${SR_SCRATCH:?SR_SCRATCH is not set}"
+[ -f "$SR_SCRATCH/.sr/run.sh" ] || { echo "write your commands to .sr/run.sh first"; exit 2; }
+case "${SR_SANDBOX:-local}" in
+  modal)
+    # Import sr.sandbox from the installed engine, never from the PR checkout in the working directory.
+    root="${SR_HOME:-/opt/stationed-review}"
+    cd "$root" && PYTHONPATH="$root" exec python3 -m sr.sandbox "$SR_SCRATCH" ;;
+  local)
+    user="${SR_SANDBOX_USER:-srverify}"
+    exec timeout 600 sudo -n -u "$user" env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp LANG=C.UTF-8 \
+      bash -c 'cd "$1" && bash .sr/run.sh 2>&1 | tail -c 8000; echo "[exit ${PIPESTATUS[0]}]"' _ "$SR_SCRATCH" ;;
+  *) echo "unknown SR_SANDBOX=${SR_SANDBOX}"; exit 2 ;;
+esac
