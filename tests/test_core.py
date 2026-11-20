@@ -229,3 +229,14 @@ class Rules(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Verdicts(unittest.TestCase):
+    def test_refuted_and_duplicates_dropped(self):
+        from sr.engine import apply_verdicts
+        cands = [dict(finding(), id="c1"), dict(finding(title="b"), id="c2"), dict(finding(title="c"), id="c3")]
+        out = apply_verdicts(cands, {"c1": {"verdict": "confirmed", "method": "ran", "command": "pytest"},
+                                     "c2": {"verdict": "confirmed", "duplicate_of": "c1"},
+                                     "c3": {"verdict": "refuted"}})
+        self.assertEqual([c["id"] for c in out], ["c1"])
+        self.assertGreaterEqual(out[0]["confidence"], 0.85)

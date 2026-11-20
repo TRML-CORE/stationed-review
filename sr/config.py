@@ -13,6 +13,7 @@ DEFAULTS = {
     "budget": {"max_turns": 40, "verify_max_turns": 60, "timeout_s": 1500},
     "verify": {"enabled": True, "setup": [], "test": ""},
 }
+THINKING = {"quick": "medium", "standard": "high", "deep": "max"}
 LENSES = {"quick": ["correctness"], "standard": ["correctness", "integration"],
           "deep": ["correctness", "integration", "security"]}
 

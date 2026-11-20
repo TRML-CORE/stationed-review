@@ -12,6 +12,11 @@ Prefer running code over reading it:
 - If running is impossible (needs a service or credentials that don't exist), trace the code instead
   and say `method: traced`.
 
+Run, don't just read: for every bug candidate in code that has tests or can be imported, write a
+focused failing test or script and run it. `traced` is for candidates that need a missing service or
+credentials. Two candidates about the same root cause: keep the clearer one and set `duplicate_of`
+on the other to its id.
+
 Verdicts:
 - `confirmed`: you ran something that shows the failure, or the trace is airtight with file:line.
 - `refuted`: code or a run shows the trigger can't happen or the behaviour is correct.

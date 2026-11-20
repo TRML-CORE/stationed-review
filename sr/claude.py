@@ -17,13 +17,15 @@ class ClaudeError(RuntimeError):
     pass
 
 
-def run(prompt, cwd, tools, schema, model="opus", max_turns=40, timeout=1500, binary="claude"):
+def run(prompt, cwd, tools, schema, model="opus", max_turns=40, timeout=1500, effort=None, binary="claude"):
     env = {k: os.environ[k] for k in PASS_ENV if k in os.environ}
     cmd = [binary, "-p", "--output-format", "json", "--model", model, "--max-turns", str(max_turns),
            "--json-schema", json.dumps(schema), "--allowedTools", ",".join(tools),
            "--disallowedTools", ",".join(DENY + ([] if any(t.startswith("Bash") for t in tools) else ["Bash"]))]
     if not any(t in tools for t in ("Write", "Edit")):
         cmd[-1] += ",Write,Edit"
+    if effort:
+        cmd += ["--effort", effort]
     started = time.time()
     try:
         r = subprocess.run(cmd, input=prompt, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)

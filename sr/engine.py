@@ -70,7 +70,7 @@ def find(ctx, cfg, repo_dir, log):
         try:
             data, meta = claude.run(find_prompt(lens, ctx), repo_dir, READ_TOOLS, schema.REVIEW_SCHEMA,
                                     model=cfg["model"], max_turns=cfg["budget"]["max_turns"],
-                                    timeout=cfg["budget"]["timeout_s"])
+                                    timeout=cfg["budget"]["timeout_s"], effort=config.THINKING[cfg["effort"]])
             return lens, schema.check_review(data), meta, None
         except (claude.ClaudeError, json.JSONDecodeError) as e:
             return lens, None, {}, str(e)
@@ -119,7 +119,8 @@ def verify(cands, ctx, cfg, repo_dir, log):
     try:
         data, meta = claude.run(verify_prompt(cands, ctx, cfg), str(tree), tools, schema.VERIFY_SCHEMA,
                                 model=cfg["verify_model"] or cfg["model"],
-                                max_turns=cfg["budget"]["verify_max_turns"], timeout=cfg["budget"]["timeout_s"])
+                                max_turns=cfg["budget"]["verify_max_turns"], timeout=cfg["budget"]["timeout_s"],
+                                effort=config.THINKING[cfg["effort"]])
     except claude.ClaudeError as e:
         log(f"verify error {e}")
         return {}, [{"step": "verify", "error": str(e)}]
@@ -131,10 +132,10 @@ def verify(cands, ctx, cfg, repo_dir, log):
 
 
 def apply_verdicts(cands, verdicts):
-    out = []
+    out, ids = [], {c["id"] for c in cands}
     for c in cands:
         v = verdicts.get(c["id"])
-        if v and v.get("verdict") == "refuted":
+        if v and (v.get("verdict") == "refuted" or v.get("duplicate_of") in ids - {c["id"]}):
             continue
         c = dict(c)
         if v and v.get("verdict") == "confirmed":
