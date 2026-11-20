@@ -131,7 +131,12 @@ def scratch_copy(repo_dir, head):
     tree.mkdir()
     archive = subprocess.run(["git", "-C", repo_dir, "archive", head], capture_output=True, check=True).stdout
     subprocess.run(["tar", "-x", "-C", str(tree)], input=archive, check=True)
-    (tree / ".sr").mkdir(exist_ok=True)
+    sr_dir = tree / ".sr"
+    if sr_dir.is_symlink() or sr_dir.is_file():
+        sr_dir.unlink()
+    elif sr_dir.exists():
+        shutil.rmtree(sr_dir)
+    sr_dir.mkdir()
     os.chmod(root, 0o777)
     subprocess.run(["chmod", "-R", "a+rwX", str(tree)], check=True)
     return root, tree

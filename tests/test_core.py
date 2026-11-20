@@ -354,3 +354,26 @@ class Fixes(unittest.TestCase):
         self.assertEqual([x["fp"] for x in back["findings"]], ["p", "q"])
         self.assertEqual(back["findings"][0]["verified"], {"method": "ran"})
         self.assertLessEqual(len(state.dump(st, limit=200)), 200)
+
+
+class Scratch(unittest.TestCase):
+    def test_pr_symlinked_sr_dir_is_replaced(self):
+        import shutil
+        from sr import engine
+        with tempfile.TemporaryDirectory() as d:
+            repo, outside = Path(d, "repo"), Path(d, "outside")
+            repo.mkdir(); outside.mkdir()
+
+            def g(*a):
+                subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+            g("init", "-q")
+            Path(repo, ".sr").symlink_to(outside)
+            Path(repo, "a.txt").write_text("a\n")
+            g("add", "."); g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "x")
+            root, tree = engine.scratch_copy(str(repo), "HEAD")
+            try:
+                self.assertFalse((tree / ".sr").is_symlink())
+                engine.run_setup(tree, config.load("verify: {setup: ['true']}"), runner="/bin/true")
+                self.assertEqual(list(outside.iterdir()), [])
+            finally:
+                shutil.rmtree(root)
