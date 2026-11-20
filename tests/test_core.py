@@ -398,3 +398,11 @@ class SandboxUpload(unittest.TestCase):
                 return sorted(tarfile.open(fileobj=_io.BytesIO(blob), mode="r:gz").getnames())
             self.assertEqual(names(tar_tree(tree)), [".sr/run.sh", "config.py", "repro.py"])
             self.assertEqual(names(tar_tree(tree, since=2000)), [".sr/run.sh", "repro.py"])
+
+
+class DevinOverlap(unittest.TestCase):
+    def test_select_keeps_source_lines_for_devin_comparison(self):
+        cfg = config.load("")
+        f = finding(start_line=40, end_line=40)
+        kept, _ = process.select([f], {f["file"]: [(30, 34)]}, cfg)
+        self.assertEqual((kept[0]["start_line"], kept[0]["orig_lines"]), (34, (40, 40)))

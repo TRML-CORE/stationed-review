@@ -60,7 +60,7 @@ def select(findings, hunks_by_file, cfg):
         if placed is None and f["category"] != "security" and f["severity"] not in BLOCKING:
             dropped.append((f, "outside the diff"))
             continue
-        f = dict(f, inline=placed is not None)
+        f = dict(f, inline=placed is not None, orig_lines=(f["start_line"], f["end_line"]))
         if placed:
             f["start_line"], f["end_line"] = placed
         f["fp"] = fingerprint(f)

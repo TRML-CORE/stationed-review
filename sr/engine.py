@@ -203,7 +203,11 @@ def review(ctx, cfg, repo_dir, log=print):
     checked = apply_verdicts(cands, verdicts)
     posted, dropped = process.select(checked, hunks, cfg)
     external = ctx.get("external") or []
-    dupes = [f for f in posted if any(process.overlaps(f, e, slack=6) for e in external)]
+    def at_source(f):
+        start, end = f.get("orig_lines") or (f["start_line"], f["end_line"])
+        return dict(f, start_line=start, end_line=end)
+
+    dupes = [f for f in posted if any(process.overlaps(at_source(f), e, slack=6) for e in external)]
     posted = [f for f in posted if f not in dupes]
 
     def anchor_present(p):
