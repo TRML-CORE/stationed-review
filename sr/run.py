@@ -120,10 +120,12 @@ def run_job(job, log=print, gh=None):
                          conclusion=process.conclusion(cfg["check_policy"], prior.get("findings", [])),
                          output={"title": "Already reviewed", "summary": f"`{job['head_sha'][:7]}` was reviewed."})
                 return "duplicate"
-            if cfg["skip_devin_duplicates"]:
-                log(f"devin review: {devin.wait(gh, job['head_sha'])}")
-                ctx["external"] = devin.findings(gh, job["number"])
             ctx["deadline"] = job_deadline(job, started)
+            if cfg["skip_devin_duplicates"]:
+                # Leave the review itself at least 30 minutes before the deadline.
+                wait_s = max(0, min(600, ctx["deadline"] - time.time() - 1800))
+                log(f"devin review: {devin.wait(gh, job['head_sha'], appear_s=min(120, wait_s), total_s=wait_s)}")
+                ctx["external"] = devin.findings(gh, job["number"])
             result = engine.review(ctx, cfg, workdir, log)
             meta = {"run_id": run_id, "engine": "stationed-review", "model": cfg["model"], "effort": cfg["effort"],
                     "head_sha": job["head_sha"], "duration_s": int(time.time() - started),
