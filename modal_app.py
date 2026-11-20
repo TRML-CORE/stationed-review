@@ -24,7 +24,7 @@ app = modal.App("stationed-review", image=reviewer_image())
 secret = modal.Secret.from_name("stationed-review")
 
 
-@app.function(secrets=[secret], timeout=1800, cpu=2.0, memory=4096, single_use_containers=True, max_containers=10)
+@app.function(secrets=[secret], timeout=3600, cpu=2.0, memory=4096, single_use_containers=True, max_containers=10)
 def review(job: dict):
     """Runs as root only to hand the job to the unprivileged `sr` user."""
     path = "/tmp/job.json"

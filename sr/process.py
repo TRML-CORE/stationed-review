@@ -100,6 +100,4 @@ def conclusion(policy, open_findings, open_threads=0):
     if policy == "no_open_severe" and any(f["severity"] in BLOCKING for f in open_findings
                                           if f.get("introduced_by_pr", True)):
         return "failure"
-    if policy == "all_resolved" and open_threads:
-        return "failure"
     return "success" if not open_findings else "neutral"

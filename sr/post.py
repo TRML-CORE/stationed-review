@@ -73,6 +73,9 @@ def summary_body(result, st, meta):
     if st["mode"] == "shadow" and result["new"]:
         lines.append("### New this round (details)")
         for f in result["new"]:
+            if sum(map(len, lines)) > 40000:
+                lines.append("_More findings are in the check annotations._")
+                break
             lines.append(f"<details><summary>{header(f)} — <code>{clean(f['file'], 200)}:{f['start_line']}</code>"
                          f"</summary>\n\n{finding_body(f, meta['run_id'])}\n\n</details>")
     cost = meta.get("cost_usd")

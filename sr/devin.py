@@ -28,10 +28,10 @@ def findings(gh, number):
     for c in gh.pr_review_comments(number):
         if not (c.get("user") or {}).get("login", "").startswith(BOT) or c.get("in_reply_to_id"):
             continue
-        end = c.get("line") or c.get("original_line")
+        end = c.get("line")  # None when the comment is outdated
         if not c.get("path") or not end:
             continue
-        start = c.get("start_line") or c.get("original_start_line") or end
+        start = c.get("start_line") or end
         title = next((ln.strip("*# 🔴🟡🟢") for ln in (c.get("body") or "").splitlines() if ln.strip()), "")
         out.append({"file": c["path"], "start_line": int(start), "end_line": int(end), "title": title[:200]})
     return out

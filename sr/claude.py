@@ -19,7 +19,7 @@ class ClaudeError(RuntimeError):
 
 def run(prompt, cwd, tools, schema, model="opus", max_turns=40, timeout=1500, effort=None, binary="claude"):
     env = {k: os.environ[k] for k in PASS_ENV if k in os.environ}
-    cmd = [binary, "-p", "--output-format", "json", "--model", model, "--max-turns", str(max_turns),
+    cmd = [binary, "-p", "--setting-sources", "user", "--output-format", "json", "--model", model, "--max-turns", str(max_turns),
            "--json-schema", json.dumps(schema), "--allowedTools", ",".join(tools),
            "--disallowedTools", ",".join(DENY + ([] if any(t.startswith("Bash") for t in tools) else ["Bash"]))]
     if not any(t in tools for t in ("Write", "Edit")):

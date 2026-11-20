@@ -17,7 +17,7 @@ Org-wide PR reviewer for TRML-CORE: **find → verify → rank → post**.
 ```yaml
 mode: shadow            # shadow (summary + check) | on (inline threads) | off
 effort: standard        # quick | standard | deep
-check_policy: completed # completed (never blocks) | no_open_severe | all_resolved
+check_policy: completed # completed (never blocks) | no_open_severe
 skip_devin_duplicates: true
 verify: { setup: ["pip install -r requirements.txt"], test: "./scripts/test.sh" }
 ```

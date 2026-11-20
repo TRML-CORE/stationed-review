@@ -63,7 +63,7 @@ def verify_prompt(cands, ctx, cfg):
         "SETUP\n" + fence("SETUP", json.dumps({"installed_by": setup.get("setup") or "(nothing)",
                                                "test_command": setup.get("test") or "(unknown)"})),
         "CANDIDATES (untrusted)\n" + fence("CANDIDATES", "\n".join(lines)),
-        "RULES (trusted)\n" + ("\n".join(ctx["rules"]) or "(none)"),
+        "RULES (trusted)\n" + ("\n\n".join(f"--- {p} ---\n{t[:8000]}" for p, t in ctx["rules"].items()) or "(none)"),
     ])
 
 

@@ -4,7 +4,7 @@ import copy
 DEFAULTS = {
     "skip_devin_duplicates": True,  # wait for Devin Review and post only what it didn't
     "mode": "shadow",            # on: inline threads; shadow: summary + check annotations only; off
-    "check_policy": "completed",  # completed | no_open_severe | all_resolved
+    "check_policy": "completed",  # completed | no_open_severe
     "effort": "standard",        # quick | standard | deep
     "min_confidence": 0.6,
     "max_findings": 15,
@@ -36,6 +36,8 @@ def load(text):
         import yaml
         data = yaml.safe_load(text) or {}
     cfg = merge(DEFAULTS, data if isinstance(data, dict) else {})
+    if isinstance(cfg["mode"], bool):
+        cfg["mode"] = "on" if cfg["mode"] else "off"
     if cfg["mode"] not in ("on", "shadow", "off"):
         cfg["mode"] = "shadow"
     if cfg["effort"] not in LENSES:
@@ -43,6 +45,6 @@ def load(text):
     find_t, verify_t = TURNS[cfg["effort"]]
     cfg["budget"]["max_turns"] = cfg["budget"]["max_turns"] or find_t
     cfg["budget"]["verify_max_turns"] = cfg["budget"]["verify_max_turns"] or verify_t
-    if cfg["check_policy"] not in ("completed", "no_open_severe", "all_resolved"):
+    if cfg["check_policy"] not in ("completed", "no_open_severe"):
         cfg["check_policy"] = "completed"
     return cfg

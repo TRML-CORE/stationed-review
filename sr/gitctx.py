@@ -26,7 +26,7 @@ def changed_files(repo, base, head):
     files = []
     for line in out.splitlines():
         parts = line.split("\t")
-        if parts and parts[0][:1] != "D":
+        if parts and parts[-1]:
             files.append(parts[-1])
     return files
 

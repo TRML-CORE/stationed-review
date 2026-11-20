@@ -57,7 +57,7 @@ def _basic(token):
 
 def load_state(gh, number):
     for c in gh.issue_comments(number):
-        if state.STICKY in (c.get("body") or ""):
+        if state.STICKY in (c.get("body") or "") and (c.get("user") or {}).get("type") == "Bot":
             return state.parse(c["body"]), c["id"]
     return state.empty(), None
 
@@ -101,7 +101,8 @@ def run_job(job, log=print, gh=None):
                          output={"title": "Nothing to review", "summary": "Only ignored paths changed."})
                 return "ignored"
             if ctx["since_sha"] == job["head_sha"]:
-                gh.check(check_id, status="completed", conclusion="success",
+                gh.check(check_id, status="completed",
+                         conclusion=process.conclusion(cfg["check_policy"], prior.get("findings", [])),
                          output={"title": "Already reviewed", "summary": f"`{job['head_sha'][:7]}` was reviewed."})
                 return "duplicate"
             if cfg["skip_devin_duplicates"]:
@@ -111,6 +112,10 @@ def run_job(job, log=print, gh=None):
             meta = {"run_id": run_id, "engine": "stationed-review", "model": cfg["model"], "effort": cfg["effort"],
                     "head_sha": job["head_sha"], "duration_s": int(time.time() - started),
                     "cost_usd": sum(m.get("cost_usd") or 0 for m in result["metas"]) or None}
+            if gh.pr(job["number"]).get("head", {}).get("sha") != job["head_sha"]:
+                gh.check(check_id, status="completed", conclusion="skipped",
+                         output={"title": "Superseded", "summary": "A newer commit will be reviewed."})
+                return "superseded"
             post.publish(gh, job["number"], job["head_sha"], check_id, result, prior, sticky_id, cfg, meta)
             log(f"posted: {len(result['new'])} new, {len(result['fixed'])} fixed, {len(result['refuted'])} refuted")
             return "posted"
