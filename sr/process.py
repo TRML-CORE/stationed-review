@@ -55,7 +55,9 @@ def select(findings, hunks_by_file, cfg):
             dropped.append((f, "ignored path"))
             continue
         placed = place(f, hunks_by_file.get(f["file"]))
-        if placed is None and f["category"] != "security":
+        # Security and blocking findings outside the new-side diff (e.g. a deleted module's callers)
+        # stay in the summary instead of being dropped.
+        if placed is None and f["category"] != "security" and f["severity"] not in BLOCKING:
             dropped.append((f, "outside the diff"))
             continue
         f = dict(f, inline=placed is not None)

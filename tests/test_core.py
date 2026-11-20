@@ -87,6 +87,16 @@ class Process(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertFalse(kept[0]["inline"])
 
+    def test_severe_bug_outside_diff_kept_in_summary(self):
+        deleted = gitctx.hunks("--- a/app/registration.py\n+++ /dev/null\n@@ -1,3 +0,0 @@\n-a\n-b\n-c\n")
+        self.assertEqual(deleted, {})
+        severe = finding(severity="severe", file="app/main.py", title="Imports deleted module")
+        minor = finding(file="app/main.py", title="Style nit")
+        kept, dropped = process.select([severe, minor], deleted, self.cfg)
+        self.assertEqual([(k["title"], k["inline"]) for k in kept], [("Imports deleted module", False)])
+        self.assertEqual([r for _, r in dropped], ["outside the diff"])
+        self.assertEqual(process.conclusion("no_open_severe", kept), "failure")
+
     def test_reconcile(self):
         p1 = dict(finding(), fp="p1")
         p2 = dict(finding(file="b.py", title="other"), fp="p2")
