@@ -81,12 +81,13 @@ def reconcile(prior_open, model_prior, new, anchor_present):
 
     prior_open: list of state findings; model_prior: {fp: status}; anchor_present(f) -> bool.
     A finding is fixed when the model says fixed/obsolete and its anchor is gone or moved,
-    or when the model says obsolete. Model 'fixed' with the anchor untouched stays open.
+    or when the model says obsolete. Model 'fixed' with the anchor untouched stays open, except for
+    summary-only findings: their anchor is unchanged code outside the diff by definition.
     """
     fixed, still = [], []
     for p in prior_open:
         status = model_prior.get(p["fp"], "still_open")
-        if status == "obsolete" or (status == "fixed" and not anchor_present(p)):
+        if status == "obsolete" or (status == "fixed" and (p.get("inline") is False or not anchor_present(p))):
             fixed.append(p)
         else:
             still.append(p)

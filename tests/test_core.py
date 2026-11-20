@@ -113,6 +113,11 @@ class Process(unittest.TestCase):
         fixed, still, _ = process.reconcile([p], {"p": "fixed"}, [], anchor_present=lambda p: True)
         self.assertEqual((fixed, len(still)), ([], 1))
 
+    def test_summary_only_finding_closes_when_model_says_fixed(self):
+        p = dict(finding(), fp="p", inline=False)
+        fixed, still, _ = process.reconcile([p], {"p": "fixed"}, [], anchor_present=lambda p: True)
+        self.assertEqual((len(fixed), still), (1, []))
+
     def test_conclusion(self):
         sev = [dict(finding(severity="severe"))]
         self.assertEqual(process.conclusion("completed", sev), "neutral")

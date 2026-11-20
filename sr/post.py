@@ -137,7 +137,7 @@ def publish(gh, pr_number, head_sha, check_id, result, prev_state, sticky_id, cf
     for f in list(keep.values()) + result["new"]:
         st["findings"].append({k: f.get(k) for k in ("fp", "category", "severity", "file", "start_line",
                                                      "end_line", "title", "anchor", "comment_id",
-                                                     "introduced_by_pr", "verified")})
+                                                     "introduced_by_pr", "verified", "inline")})
     st["runs"].append({"run": run_id, "sha": head_sha, "new": len(result["new"]), "fixed": len(result["fixed"]),
                        "open": len(st["findings"]), "refuted": len(result["refuted"]),
                        "cost_usd": meta.get("cost_usd"), "duration_s": meta["duration_s"]})
