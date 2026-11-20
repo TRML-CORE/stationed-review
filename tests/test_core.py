@@ -380,24 +380,28 @@ class Scratch(unittest.TestCase):
 
 
 class SandboxUpload(unittest.TestCase):
-    def test_later_uploads_skip_unchanged_files(self):
-        import io as _io
-        import os
-        import tarfile
-        from sr.sandbox import tar_tree
+    def test_each_run_restores_checkout_then_setup_files(self):
+        from sr.sandbox import SAVE_SETUP, UPLOAD, tar_tree
         with tempfile.TemporaryDirectory() as d:
-            tree = Path(d)
-            (tree / ".sr").mkdir()
-            (tree / ".sr" / "run.sh").write_text("true\n")
+            tree, w = Path(d, "tree"), Path(d, "w")
+            (tree / ".sr").mkdir(parents=True)
             (tree / "config.py").write_text("x = 1\n")
-            (tree / "repro.py").write_text("print(1)\n")
-            os.utime(tree / "config.py", (1000, 1000))
-            os.utime(tree / ".sr" / "run.sh", (1000, 1000))
+            (tree / "app.py").write_text("ok\n")
+            blob = tar_tree(tree)
 
-            def names(blob):
-                return sorted(tarfile.open(fileobj=_io.BytesIO(blob), mode="r:gz").getnames())
-            self.assertEqual(names(tar_tree(tree)), [".sr/run.sh", "config.py", "repro.py"])
-            self.assertEqual(names(tar_tree(tree, since=2000)), [".sr/run.sh", "repro.py"])
+            def sh(cmd, data=None):
+                cmd = cmd.replace("/tmp/", d + "/").replace(" /w", " " + str(w))
+                subprocess.run(["bash", "-c", cmd], input=data, check=True, capture_output=True)
+            sh(UPLOAD, blob)
+            import time as _t
+            _t.sleep(0.05)
+            (w / "config.py").write_text("x = 2\n")  # setup edits a tracked file
+            sh(SAVE_SETUP)
+            sh(UPLOAD, blob)
+            (w / "app.py").write_text("broken by a test\n")
+            sh(UPLOAD, blob)
+            self.assertEqual((w / "config.py").read_text(), "x = 2\n")
+            self.assertEqual((w / "app.py").read_text(), "ok\n")
 
 
 class DevinOverlap(unittest.TestCase):

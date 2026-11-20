@@ -67,7 +67,7 @@ def run_setup(tree, cfg, runner=SR_RUN, timeout=900):
     script = Path(tree) / ".sr" / "run.sh"
     script.write_text("set -e\n" + "\n".join(cmds) + "\n")
     try:
-        r = subprocess.run([str(runner)], env=dict(os.environ, SR_SCRATCH=str(tree)), capture_output=True,
+        r = subprocess.run([str(runner)], env=dict(os.environ, SR_SCRATCH=str(tree), SR_SETUP="1"), capture_output=True,
                            text=True, timeout=timeout)
         return (r.stdout + r.stderr)[-3000:]
     except subprocess.TimeoutExpired:
