@@ -13,6 +13,11 @@ import subprocess
 
 import modal
 
+try:
+    from fastapi import Request
+except ImportError:  # deploying from a machine without fastapi
+    Request = object
+
 from sr.modal_images import reviewer_image
 
 app = modal.App("stationed-review", image=reviewer_image())
@@ -35,7 +40,7 @@ def review(job: dict):
 
 @app.function(secrets=[secret], min_containers=0)
 @modal.fastapi_endpoint(method="POST", label="stationed-review-job")
-async def job(request: "fastapi.Request"):  # noqa: F821
+async def job(request: Request):
     from fastapi.responses import JSONResponse
     from sr.run import validate
     body = await request.body()
