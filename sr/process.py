@@ -84,18 +84,19 @@ def reconcile(prior_open, model_prior, new, anchor_present):
     or when the model says obsolete. Model 'fixed' with the anchor untouched stays open, except for
     summary-only findings: their anchor is unchanged code outside the diff by definition.
     """
+    def repeats(f, p):
+        return f["fp"] == p["fp"] or (overlaps(f, p) and f["category"] == p["category"])
+
     fixed, still = [], []
     for p in prior_open:
         status = model_prior.get(p["fp"], "still_open")
-        if status == "obsolete" or (status == "fixed" and (p.get("inline") is False or not anchor_present(p))):
+        closed = status == "obsolete" or (status == "fixed" and (p.get("inline") is False or not anchor_present(p)))
+        # A finding found again this round is not fixed, whatever the model said about it.
+        if closed and not any(repeats(f, p) for f in new):
             fixed.append(p)
         else:
             still.append(p)
-    fresh = []
-    for f in new:
-        if any(f["fp"] == p["fp"] or (overlaps(f, p) and f["category"] == p["category"]) for p in still):
-            continue
-        fresh.append(f)
+    fresh = [f for f in new if not any(repeats(f, p) for p in still)]
     return fixed, still, fresh
 
 
