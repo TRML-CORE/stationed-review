@@ -4,6 +4,7 @@ import re
 import subprocess
 import tempfile
 import time
+from datetime import datetime
 import traceback
 import uuid
 
@@ -11,7 +12,7 @@ from . import VERSION, claude, config, devin, engine, gitctx, post, process, sta
 from .github import GitHub
 from .redact import redact
 
-# The bridge's installation token lasts 1 hour; finish reviewing early enough to still post with it.
+# The bridge's installation token lasts 1 hour; finish early enough to post with it (see job_deadline).
 JOB_BUDGET_S = 3000
 REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -79,6 +80,16 @@ def build_context(repo_dir, base_ref, head_sha, pr, prior):
             "body": pr.get("body") or "", "prior_open": prior.get("findings", []), "since_sha": since}
 
 
+def job_deadline(job, started):
+    """When the review must stop: JOB_BUDGET_S after start, or 10 min before the token expires if sooner."""
+    deadline = started + JOB_BUDGET_S
+    try:
+        expires = datetime.fromisoformat(job["expires_at"].replace("Z", "+00:00")).timestamp()
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return deadline
+    return min(deadline, expires - 600)
+
+
 def run_job(job, log=print, gh=None):
     started = time.time()
     gh = gh or GitHub(job["token"], job["repo"])
@@ -112,7 +123,7 @@ def run_job(job, log=print, gh=None):
             if cfg["skip_devin_duplicates"]:
                 log(f"devin review: {devin.wait(gh, job['head_sha'])}")
                 ctx["external"] = devin.findings(gh, job["number"])
-            ctx["deadline"] = started + JOB_BUDGET_S
+            ctx["deadline"] = job_deadline(job, started)
             result = engine.review(ctx, cfg, workdir, log)
             meta = {"run_id": run_id, "engine": "stationed-review", "model": cfg["model"], "effort": cfg["effort"],
                     "head_sha": job["head_sha"], "duration_s": int(time.time() - started),

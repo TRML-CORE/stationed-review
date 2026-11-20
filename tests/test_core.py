@@ -446,3 +446,10 @@ class Deadline(unittest.TestCase):
         ctx = {"deadline": _t.time() + 10, "head_sha": "x"}
         verdicts, metas = engine.verify([{"id": "c1"}], ctx, config.load(""), ".", log=lambda m: None)
         self.assertEqual((verdicts, metas[0]["error"]), ({}, "skipped: job deadline"))
+
+    def test_job_deadline_respects_token_expiry(self):
+        from sr import run
+        self.assertEqual(run.job_deadline({}, 1000.0), 1000.0 + run.JOB_BUDGET_S)
+        job = {"expires_at": "1970-01-01T00:30:00Z"}  # token queued for 30 min already
+        self.assertEqual(run.job_deadline(job, 0.0), 1800 - 600)
+        self.assertEqual(run.job_deadline({"expires_at": "junk"}, 0.0), run.JOB_BUDGET_S)
