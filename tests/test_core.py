@@ -410,3 +410,9 @@ class DevinOverlap(unittest.TestCase):
         f = finding(start_line=40, end_line=40)
         kept, _ = process.select([f], {f["file"]: [(30, 34)]}, cfg)
         self.assertEqual((kept[0]["start_line"], kept[0]["orig_lines"]), (34, (40, 40)))
+
+    def test_second_select_keeps_first_source_lines(self):
+        cfg = config.load("")
+        first, _ = process.select([finding(start_line=40, end_line=40)], {"app/x.py": [(30, 34)]}, cfg)
+        again, _ = process.select(first, {"app/x.py": [(30, 34)]}, cfg)
+        self.assertEqual(again[0]["orig_lines"], (40, 40))
