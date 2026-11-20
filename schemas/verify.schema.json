@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "required": ["verdicts"],
+  "properties": {
+    "verdicts": {"type": "array", "items": {
+      "type": "object", "required": ["id", "verdict", "method", "evidence"],
+      "properties": {
+        "id": {"type": "string"},
+        "verdict": {"enum": ["confirmed", "refuted", "unverified"]},
+        "method": {"enum": ["ran", "traced"]},
+        "command": {"type": "string", "description": "what was run, when method is ran"},
+        "output": {"type": "string", "maxLength": 1500, "description": "short excerpt of what it printed"},
+        "evidence": {"type": "string", "maxLength": 1500},
+        "severity": {"enum": ["severe", "non_severe", "investigate", "informational", "critical", "warning"]}}}}
+  }
+}
