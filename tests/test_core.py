@@ -380,29 +380,40 @@ class Scratch(unittest.TestCase):
 
 
 class SandboxUpload(unittest.TestCase):
-    def test_each_run_restores_checkout_then_setup_files(self):
-        from sr.sandbox import SAVE_SETUP, UPLOAD, tar_tree
+    def test_runs_start_from_setup_state_plus_verifier_edits(self):
+        from sr.sandbox import FIRST, RESTORE, SNAPSHOT, manifest, tar_tree
         with tempfile.TemporaryDirectory() as d:
             tree, w = Path(d, "tree"), Path(d, "w")
             (tree / ".sr").mkdir(parents=True)
-            (tree / "config.py").write_text("x = 1\n")
-            (tree / "app.py").write_text("ok\n")
-            blob = tar_tree(tree)
+            for name, text in {"config.py": "x = 1\n", "app.py": "ok\n", "old.py": "gone\n"}.items():
+                (tree / name).write_text(text)
 
             def sh(cmd, data=None):
-                cmd = cmd.replace("/tmp/", d + "/").replace(" /w", " " + str(w))
+                cmd = cmd.replace(" /base", f" {d}/base").replace(" /w", f" {w}")
                 subprocess.run(["bash", "-c", cmd], input=data, check=True, capture_output=True)
-            sh(UPLOAD, blob)
-            import time as _t
-            _t.sleep(0.05)
-            (w / "config.py").write_text("x = 2\n")  # setup edits a tracked file
-            sh(SAVE_SETUP)
-            sh(UPLOAD, blob)
-            (w / "app.py").write_text("broken by a test\n")
-            sh(UPLOAD, blob)
-            self.assertEqual((w / "config.py").read_text(), "x = 2\n")
-            self.assertEqual((w / "app.py").read_text(), "ok\n")
 
+            base = manifest(tree)
+            sh(FIRST, tar_tree(tree))
+            (w / "config.py").write_text("x = 2\n")          # setup edits, deletes, symlinks
+            (w / "old.py").unlink()
+            (w / "link").symlink_to("app.py")
+            sh(SNAPSHOT)
+            (w / "app.py").write_text("broken by a repro\n")  # repro side effects
+            (w / "artifact.log").write_text("junk\n")
+            (tree / "app.py").write_text("verifier edit\n")   # verifier edits locally
+            (tree / "config.py").write_text("x = 3\n")
+            sh(RESTORE, tar_tree(tree, base))
+            self.assertEqual((w / "app.py").read_text(), "verifier edit\n")
+            self.assertEqual((w / "config.py").read_text(), "x = 3\n")
+            self.assertFalse((w / "old.py").exists())
+            self.assertTrue((w / "link").is_symlink())
+            self.assertFalse((w / "artifact.log").exists())
+            (tree / "config.py").write_text("x = 1\n")          # verifier reverts its edit
+            (tree / "new.py").unlink(missing_ok=True)
+            (tree / "app.py").unlink()                           # and deletes a file
+            sh(RESTORE, tar_tree(tree, base))
+            self.assertEqual((w / "config.py").read_text(), "x = 2\n")
+            self.assertFalse((w / "app.py").exists())
 
 class DevinOverlap(unittest.TestCase):
     def test_select_keeps_source_lines_for_devin_comparison(self):
