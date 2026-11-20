@@ -26,6 +26,7 @@ def main(argv=None):
     r.add_argument("--prior", help="JSON file: earlier findings in state format")
     r.add_argument("--effort")
     r.add_argument("--model")
+    r.add_argument("--verify-model")
     r.add_argument("--no-verify", action="store_true")
     r.add_argument("--out")
     a = p.parse_args(argv)
@@ -42,6 +43,8 @@ def main(argv=None):
         cfg["budget"]["max_turns"], cfg["budget"]["verify_max_turns"] = config.TURNS[a.effort]
     if a.model:
         cfg["model"] = a.model
+    if a.verify_model:
+        cfg["verify_model"] = a.verify_model
     if a.no_verify:
         cfg["verify"]["enabled"] = False
     prior = {"findings": json.load(open(a.prior))} if a.prior else {}
