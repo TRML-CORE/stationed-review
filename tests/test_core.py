@@ -355,7 +355,7 @@ class Fixes(unittest.TestCase):
         self.assertEqual(back["findings"][0]["verified"], {"method": "ran"})
         self.assertLessEqual(len(state.dump(st, limit=200)), 200)
 
-        def test_review_keeps_repeated_prior_open(self):
+    def test_review_keeps_repeated_prior_open(self):
         from unittest import mock
         from sr import engine
         prior = dict(finding(), fp=process.fingerprint(finding()), inline=True)
