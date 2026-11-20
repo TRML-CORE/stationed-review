@@ -227,7 +227,9 @@ def review(ctx, cfg, repo_dir, log=print):
         text = gitctx.show(repo_dir, ctx["head_sha"], p["file"])
         return bool(text and p.get("anchor") and process.norm(p["anchor"]) in process.norm(text))
 
-    fixed, still, fresh = process.reconcile(ctx["prior_open"], found["prior"], posted, anchor_present)
+    # Repeats of prior findings left the candidates above; they still keep those findings open.
+    repeats = [f for f in pre if not any(f is c for c in fresh_pre)]
+    fixed, still, fresh = process.reconcile(ctx["prior_open"], found["prior"], posted + repeats, anchor_present)
     refuted = [c for c in cands if verdicts.get(c["id"], {}).get("verdict") == "refuted"]
     return {"overview": found["overview"], "sections": found["sections"], "new": fresh, "fixed": fixed,
             "still_open": still, "refuted": refuted, "dropped": dropped, "devin_dupes": dupes, "metas": metas}

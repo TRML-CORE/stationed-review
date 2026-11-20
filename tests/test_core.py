@@ -355,6 +355,22 @@ class Fixes(unittest.TestCase):
         self.assertEqual(back["findings"][0]["verified"], {"method": "ran"})
         self.assertLessEqual(len(state.dump(st, limit=200)), 200)
 
+        def test_review_keeps_repeated_prior_open(self):
+        from unittest import mock
+        from sr import engine
+        prior = dict(finding(), fp=process.fingerprint(finding()), inline=True)
+        again = finding()
+        review = {"overview": "", "sections": [], "findings": [again], "prior": {prior["fp"]: "fixed"}}
+        ctx = {"diff": "+++ b/app/x.py\n@@ -1,0 +1,20 @@\n", "prior_open": [prior], "head_sha": "h"}
+        cfg = config.load("")
+        with mock.patch.object(engine, "find", return_value=(review, [])), \
+                mock.patch.object(engine, "verify", return_value=({}, [])), \
+                mock.patch.object(engine.gitctx, "show", return_value=""):
+            out = engine.review(ctx, cfg, ".", log=lambda *_: None)
+        self.assertEqual([p["fp"] for p in out["still_open"]], [prior["fp"]])
+        self.assertEqual(out["fixed"], [])
+        self.assertEqual(out["new"], [])
+
 
 class Scratch(unittest.TestCase):
     def test_pr_symlinked_sr_dir_is_replaced(self):

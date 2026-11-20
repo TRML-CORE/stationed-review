@@ -17,7 +17,7 @@ def merge_base(repo, base, head):
     return git(repo, "merge-base", base, head).strip()
 
 
-def diff(repo, base, head, unified=5):
+def diff(repo, base, head, unified=3):
     return git(repo, "diff", "-M", "-C", f"--unified={unified}", "--no-color", f"{base}...{head}")
 
 
