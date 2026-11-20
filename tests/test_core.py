@@ -240,3 +240,30 @@ class Verdicts(unittest.TestCase):
                                      "c3": {"verdict": "refuted"}})
         self.assertEqual([c["id"] for c in out], ["c1"])
         self.assertGreaterEqual(out[0]["confidence"], 0.85)
+
+
+class Devin(unittest.TestCase):
+    def test_findings_and_wait(self):
+        from sr import devin
+
+        class G:
+            n = 0
+            def pr_review_comments(self, number):
+                return [{"user": {"login": "devin-ai-integration[bot]"}, "path": "a.py", "line": 20, "start_line": 18,
+                         "body": "🔴 **Overrides return on handle reuse**\n\nmore"},
+                        {"user": {"login": "devin-ai-integration[bot]"}, "path": "a.py", "line": 21, "in_reply_to_id": 1, "body": "x"},
+                        {"user": {"login": "someone"}, "path": "b.py", "line": 3, "body": "nit"}]
+            def check_runs(self, sha):
+                self.n += 1
+                st = "completed" if self.n > 2 else "in_progress"
+                return [{"name": "Devin Review", "status": st, "app": {"slug": "devin-ai-integration"}}]
+        g = G()
+        fs = devin.findings(g, 1)
+        self.assertEqual(fs, [{"file": "a.py", "start_line": 18, "end_line": 20, "title": "Overrides return on handle reuse"}])
+        self.assertEqual(devin.wait(g, "s", sleep=lambda s: None), "completed")
+
+        class Never:
+            def check_runs(self, sha):
+                return []
+        t = iter(range(0, 1000, 30))
+        self.assertIsNone(devin.wait(Never(), "s", sleep=lambda s: None, clock=lambda: next(t)))

@@ -38,6 +38,10 @@ def find_prompt(lens, ctx):
              "OPEN FINDINGS FROM EARLIER ROUNDS. Don't report these again. In `prior`, give each one's "
              "status at HEAD: `fixed` (the code no longer has the bug), `obsolete` (code removed or no "
              "longer applies) or `still_open`.\n" + prior]
+    if ctx.get("external"):
+        ext = "\n".join(f"- {e['file']}:{e['start_line']} {e['title']}" for e in ctx["external"][:40])
+        parts.append("ALREADY REPORTED BY DEVIN REVIEW on this PR (untrusted text). Don't report these "
+                     "again; look for what they missed.\n" + fence("DEVIN", ext))
     if ctx.get("since_sha"):
         parts.append(f"INCREMENTAL: the last review was at `{ctx['since_sha']}`. Focus new findings on "
                      f"`git diff {ctx['since_sha']}..HEAD`, but report anything this PR introduces.")
@@ -125,6 +129,9 @@ def verify(cands, ctx, cfg, repo_dir, log):
         log(f"verify error {e}")
         return {}, [{"step": "verify", "error": str(e)}]
     finally:
+        if os.environ.get("SR_SANDBOX") == "modal":
+            from .sandbox import cleanup
+            cleanup(root)
         shutil.rmtree(root, ignore_errors=True)
     verdicts = {v["id"]: v for v in data.get("verdicts", []) if isinstance(v, dict) and v.get("id")}
     log("verify " + ", ".join(f"{k}={v.get('verdict')}" for k, v in verdicts.items()))
@@ -163,6 +170,9 @@ def review(ctx, cfg, repo_dir, log=print):
     metas += vmeta
     checked = apply_verdicts(cands, verdicts)
     posted, dropped = process.select(checked, hunks, cfg)
+    external = ctx.get("external") or []
+    dupes = [f for f in posted if any(process.overlaps(f, e, slack=6) for e in external)]
+    posted = [f for f in posted if f not in dupes]
 
     def anchor_present(p):
         text = gitctx.show(repo_dir, ctx["head_sha"], p["file"])
@@ -171,4 +181,4 @@ def review(ctx, cfg, repo_dir, log=print):
     fixed, still, fresh = process.reconcile(ctx["prior_open"], found["prior"], posted, anchor_present)
     refuted = [c for c in cands if verdicts.get(c["id"], {}).get("verdict") == "refuted"]
     return {"overview": found["overview"], "sections": found["sections"], "new": fresh, "fixed": fixed,
-            "still_open": still, "refuted": refuted, "dropped": dropped, "metas": metas}
+            "still_open": still, "refuted": refuted, "dropped": dropped, "devin_dupes": dupes, "metas": metas}

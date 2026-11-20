@@ -2,6 +2,7 @@
 import copy
 
 DEFAULTS = {
+    "skip_devin_duplicates": True,  # wait for Devin Review and post only what it didn't
     "mode": "shadow",            # on: inline threads; shadow: summary + check annotations only; off
     "check_policy": "completed",  # completed | no_open_severe | all_resolved
     "effort": "standard",        # quick | standard | deep

@@ -48,6 +48,18 @@ class GitHub:
                 return out
             page += 1
 
+    def pr_review_comments(self, number):
+        out, page = [], 1
+        while True:
+            batch = self.call("GET", self.repo_path(f"/pulls/{number}/comments?per_page=100&page={page}"))
+            out += batch
+            if len(batch) < 100:
+                return out
+            page += 1
+
+    def check_runs(self, sha):
+        return self.call("GET", self.repo_path(f"/commits/{sha}/check-runs?per_page=100")).get("check_runs", [])
+
     def upsert_comment(self, number, marker, body, comment_id=None):
         if comment_id:
             return self.call("PATCH", self.repo_path(f"/issues/comments/{comment_id}"), {"body": body})

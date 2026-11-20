@@ -79,6 +79,7 @@ def summary_body(result, st, meta):
     lines.append(f"<sub>{meta['engine']} · {meta['model']} · effort {meta['effort']} · "
                  f"{meta['duration_s']}s{f' · ${cost:.2f}' if cost else ''} · "
                  f"{len(result['refuted'])} candidate(s) refuted by the verifier · "
+                 f"{len(result.get('devin_dupes') or [])} skipped as already posted by Devin Review · "
                  f"commit `{meta['head_sha'][:7]}`</sub>")
     body = "\n\n".join(lines)
     return body + "\n" + state.dump(st, limit=65000 - len(body) - 10)

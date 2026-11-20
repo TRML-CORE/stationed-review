@@ -28,11 +28,24 @@ def main(tree):
         sb = modal.Sandbox.create("sleep", "3600", app=app, image=sandbox_image(), timeout=3600,
                                   cpu=2.0, memory=4096, workdir="/w")
         id_file.write_text(sb.object_id)
-    with sb.open("/tmp/tree.tgz", "wb") as f:
-        f.write(tar_tree(tree))
-    p = sb.exec("bash", "-c", "mkdir -p /w && tar -xzf /tmp/tree.tgz -C /w && cd /w && "
-                "timeout 600 bash .sr/run.sh 2>&1 | tail -c 8000; echo \"[exit ${PIPESTATUS[0]}]\"", timeout=700)
+    up = sb.exec("bash", "-c", "mkdir -p /w && tar -xz -C /w", timeout=120)
+    up.stdin.write(tar_tree(tree))
+    up.stdin.write_eof()
+    up.stdin.drain()
+    up.wait()
+    p = sb.exec("bash", "-c", "cd /w && timeout 600 bash .sr/run.sh 2>&1 | tail -c 8000; "
+                "echo \"[exit ${PIPESTATUS[0]}]\"", timeout=700)
     sys.stdout.write(p.stdout.read())
+
+
+def cleanup(root):
+    id_file = Path(root) / "sandbox_id"
+    if id_file.exists():
+        import modal
+        try:
+            modal.Sandbox.from_id(id_file.read_text().strip()).terminate()
+        except Exception:  # noqa: BLE001 - the sandbox times out on its own
+            pass
 
 
 if __name__ == "__main__":

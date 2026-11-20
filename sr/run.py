@@ -7,7 +7,7 @@ import time
 import traceback
 import uuid
 
-from . import VERSION, claude, config, engine, gitctx, post, process, state
+from . import VERSION, claude, config, devin, engine, gitctx, post, process, state
 from .github import GitHub
 from .redact import redact
 
@@ -104,6 +104,9 @@ def run_job(job, log=print, gh=None):
                 gh.check(check_id, status="completed", conclusion="success",
                          output={"title": "Already reviewed", "summary": f"`{job['head_sha'][:7]}` was reviewed."})
                 return "duplicate"
+            if cfg["skip_devin_duplicates"]:
+                log(f"devin review: {devin.wait(gh, job['head_sha'])}")
+                ctx["external"] = devin.findings(gh, job["number"])
             result = engine.review(ctx, cfg, workdir, log)
             meta = {"run_id": run_id, "engine": "stationed-review", "model": cfg["model"], "effort": cfg["effort"],
                     "head_sha": job["head_sha"], "duration_s": int(time.time() - started),
